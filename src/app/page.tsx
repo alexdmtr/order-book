@@ -1,11 +1,14 @@
-import Image from "next/image";
-import styles from "./page.module.css";
-import { Button } from "@mui/material";
+import OrderBookView from "@/components/OrderBookView";
+import { Box, Breadcrumbs } from "@mui/material";
 
 export default function Home() {
   return (
     <main>
-      <Button>Hello world</Button>
+      <Breadcrumbs aria-label="breadcrumb" sx={{ p: 2 }}>
+        <div>Exchange</div>
+        <Box color="text.primary">Order Book</Box>
+      </Breadcrumbs>
+      <OrderBookView />
     </main>
   );
 }
