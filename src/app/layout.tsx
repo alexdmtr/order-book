@@ -5,7 +5,6 @@ import { ThemeProvider } from "@mui/material/styles";
 import theme from "../theme";
 import { Roboto } from "next/font/google";
 import { AppBar, Toolbar, Typography } from "@mui/material";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const roboto = Roboto({
   weight: ["300", "400", "500", "700"],

@@ -12,6 +12,7 @@ import QuoteSelector, {
 import {
   BehaviorSubject,
   buffer,
+  bufferWhen,
   concat,
   fromEvent,
   skipUntil,
@@ -60,13 +61,7 @@ function OrderBook() {
   const [state, setState] = useState<OrderBookState | undefined>();
   const [firstUpdateId, setFirstUpdateId] = useState<number | null>(null);
   const eventStream$ = useMemo(() => new Subject<OrderBookUpdate>(), []);
-  const responseStream$ = useMemo(() => new Subject<OrderBookState>(), []);
-
-  useEffect(() => {
-    const subscription = eventStream$.subscribe(console.log);
-
-    return () => subscription.unsubscribe();
-  }, [eventStream$]);
+  const stateStream = useMemo(() => new Subject<OrderBookState>(), []);
 
   const snapshotQuery = useQuery({
     queryFn: () =>
@@ -80,22 +75,23 @@ function OrderBook() {
     enabled: firstUpdateId !== null,
   });
 
-  // useEffect(() => {
-  //   // buffer events until the first response
-  //   const buffered$ = eventStream$.pipe(
-  //     buffer(responseStream$) // collects events until responseStream$ emits
-  //   );
+  useEffect(() => {
+    // buffer events until the first response
+    const buffered$ = eventStream$.pipe(
+      buffer(stateStream),
+      takeUntil(stateStream)
+    );
 
-  //   // after the response, pass events live
-  //   const live$ = eventStream$.pipe(skipUntil(responseStream$));
+    // after the response, pass events live
+    const live$ = eventStream$.pipe(skipUntil(stateStream));
 
-  //   // concat buffered events then live events
-  //   const subscription = concat(buffered$, live$).subscribe((event) => {
-  //     console.log(event);
-  //   });
+    // concat buffered events then live events
+    const subscription = concat(buffered$, live$).subscribe((event) => {
+      console.log(event);
+    });
 
-  //   return () => subscription.unsubscribe();
-  // }, [eventStream$, responseStream$]);
+    return () => subscription.unsubscribe();
+  }, [eventStream$, stateStream]);
 
   if (snapshotQuery.isError) {
     throw snapshotQuery.error;
@@ -112,7 +108,8 @@ function OrderBook() {
     }
 
     setState(snapshot);
-  }, [firstUpdateId, state, symbol, snapshotQuery]);
+    stateStream.next(snapshot);
+  }, [firstUpdateId, state, symbol, snapshotQuery, stateStream]);
 
   useEffect(() => {
     // Create WebSocket connection.
