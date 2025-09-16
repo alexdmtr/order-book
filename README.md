@@ -36,3 +36,4 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
 https://mui.com/material-ui/integrations/nextjs/
+https://developers.binance.com/docs/binance-spot-api-docs/web-socket-streams#partial-book-depth-streams

@@ -3,14 +3,29 @@
 import { Stack, Typography } from "@mui/material";
 import { atom, useAtomValue } from "jotai";
 import OrderBookGrid from "./OrderBookGrid";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import BaseSelector, { BaseAsset, baseAtom } from "./selectors/BaseSelector";
 import QuoteSelector, {
   QuoteAsset,
   quoteAtom,
 } from "./selectors/QuoteSelector";
-import DepthSelector from "./selectors/DepthSelector";
-import DecimalGroupingSelector from "./selectors/DecimalGroupingSelector";
+import {
+  BehaviorSubject,
+  buffer,
+  concat,
+  fromEvent,
+  skipUntil,
+  Subject,
+  switchMap,
+  take,
+  takeUntil,
+  toArray,
+} from "rxjs";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from "@tanstack/react-query";
 
 export type Symbol = `${BaseAsset}${QuoteAsset}`;
 
@@ -20,19 +35,84 @@ const symbolAtom = atom<Symbol>((get) => {
   return `${base}${quote}`;
 });
 
-const levels = "@100ms"; // @5@10@100ms
+const levels = "@1000ms"; // @5@10@100ms
 const speedSuffix = ""; // @100ms
 
-type PriceQtyPair = [price: string, amount: string];
-type OrderBookResponse = {
-  b: PriceQtyPair[]; // Bids to be updated,
+export type PriceQtyPair = [price: string, amount: string];
+export type OrderBookUpdate = {
+  e: "depthUpdate"; // Event type
+  E: number; // Event time (timestamp)
+  s: string; // Symbol (e.g., "BNBBTC")
+  U: number; // First update ID in event
+  u: number; // Final update ID in event
+  b: PriceQtyPair[]; // Bids to be updated
   a: PriceQtyPair[]; // Asks to be updated
 };
 
-export default function OrderBookView() {
-  const base = useAtomValue(baseAtom);
-  const quote = useAtomValue(quoteAtom);
+export type OrderBookState = {
+  lastUpdateId: number;
+  bids: PriceQtyPair[];
+  asks: PriceQtyPair[];
+};
+
+function OrderBook() {
   const symbol = useAtomValue(symbolAtom);
+  const [state, setState] = useState<OrderBookState | undefined>();
+  const [firstUpdateId, setFirstUpdateId] = useState<number | null>(null);
+  const eventStream$ = useMemo(() => new Subject<OrderBookUpdate>(), []);
+  const responseStream$ = useMemo(() => new Subject<OrderBookState>(), []);
+
+  useEffect(() => {
+    const subscription = eventStream$.subscribe(console.log);
+
+    return () => subscription.unsubscribe();
+  }, [eventStream$]);
+
+  const snapshotQuery = useQuery({
+    queryFn: () =>
+      fetch(
+        `https://api.binance.com/api/v3/depth?symbol=${symbol.toUpperCase()}&limit=5000`,
+        { mode: "cors" }
+      ).then((res) => {
+        return res.json();
+      }),
+    queryKey: ["snapshot", symbol],
+    enabled: firstUpdateId !== null,
+  });
+
+  // useEffect(() => {
+  //   // buffer events until the first response
+  //   const buffered$ = eventStream$.pipe(
+  //     buffer(responseStream$) // collects events until responseStream$ emits
+  //   );
+
+  //   // after the response, pass events live
+  //   const live$ = eventStream$.pipe(skipUntil(responseStream$));
+
+  //   // concat buffered events then live events
+  //   const subscription = concat(buffered$, live$).subscribe((event) => {
+  //     console.log(event);
+  //   });
+
+  //   return () => subscription.unsubscribe();
+  // }, [eventStream$, responseStream$]);
+
+  if (snapshotQuery.isError) {
+    throw snapshotQuery.error;
+  }
+  useEffect(() => {
+    if (firstUpdateId === null || !snapshotQuery.isSuccess) {
+      return;
+    }
+    const snapshot = snapshotQuery.data;
+    if (snapshot.lastUpdateId < firstUpdateId) {
+      console.warn("Snapshot is older than first update, ignoring");
+      snapshotQuery.refetch();
+      return;
+    }
+
+    setState(snapshot);
+  }, [firstUpdateId, state, symbol, snapshotQuery]);
 
   useEffect(() => {
     // Create WebSocket connection.
@@ -40,21 +120,33 @@ export default function OrderBookView() {
       `wss://stream.binance.com:9443/ws/${symbol}@depth${levels}${speedSuffix}`
     );
 
-    // Connection opened
-    // socket.addEventListener("open", (event) => {
-    //   socket.send("Hello Server!");
-    // });
-
     // Listen for messages
     socket.addEventListener("message", (event: MessageEvent) => {
-      const data: OrderBookResponse = JSON.parse(event.data);
-      console.log(data);
-
-      // console.log("Message from server ", event.data);
+      const data: OrderBookUpdate = JSON.parse(event.data);
+      eventStream$.next(data);
+      setFirstUpdateId((prev) => (prev === null ? data.U : prev));
     });
 
     return () => socket.close();
-  }, [symbol]);
+  }, [eventStream$, firstUpdateId, symbol]);
+
+  return (
+    <Stack width="100%" flex={1} direction="row" gap={2} p={2}>
+      {state && (
+        <>
+          <OrderBookGrid prices={state.asks} side="Buy" />
+          <OrderBookGrid prices={state.bids} side="Sell" />
+        </>
+      )}
+    </Stack>
+  );
+}
+const queryClient = new QueryClient();
+
+export default function OrderBookView() {
+  const base = useAtomValue(baseAtom);
+  const quote = useAtomValue(quoteAtom);
+  const symbol = useAtomValue(symbolAtom);
 
   return (
     <Stack width="100%" height="100%">
@@ -64,13 +156,10 @@ export default function OrderBookView() {
       <Stack width="100%" direction="row" justifyContent="end" gap={1}>
         <BaseSelector />
         <QuoteSelector />
-        <DepthSelector />
-        <DecimalGroupingSelector />
       </Stack>
-      <Stack width="100%" flex={1} direction="row" gap={2} p={2}>
-        <OrderBookGrid />
-        <OrderBookGrid />
-      </Stack>
+      <QueryClientProvider client={queryClient}>
+        <OrderBook key={symbol} />
+      </QueryClientProvider>
     </Stack>
   );
 }
