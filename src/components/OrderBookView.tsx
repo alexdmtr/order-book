@@ -9,6 +9,8 @@ import {
   Typography,
 } from "@mui/material";
 import { atom, useAtom, useAtomValue } from "jotai";
+import OrderBookGrid from "./OrderBookGrid";
+import { useEffect } from "react";
 
 const baseAssets = [
   "btc",
@@ -102,28 +104,42 @@ function QuoteSelector() {
   );
 }
 
-const symbol: Symbol = "btcusdt";
 const levels = "@100ms"; // @5@10@100ms
 const speedSuffix = ""; // @100ms
 
-// Create WebSocket connection.
-const socket = new WebSocket(
-  `wss://stream.binance.com:9443/ws/${symbol}@depth${levels}${speedSuffix}`
-);
-
-// Connection opened
-socket.addEventListener("open", (event) => {
-  socket.send("Hello Server!");
-});
-
-// Listen for messages
-socket.addEventListener("message", (event) => {
-  console.log("Message from server ", event.data);
-});
+type PriceQtyPair = [price: string, amount: string];
+type OrderBookResponse = {
+  b: PriceQtyPair[]; // Bids to be updated,
+  a: PriceQtyPair[]; // Asks to be updated
+};
 
 export default function OrderBookView() {
   const base = useAtomValue(baseAtom);
   const quote = useAtomValue(quoteAtom);
+  const symbol = useAtomValue(symbolAtom);
+
+  useEffect(() => {
+    // Create WebSocket connection.
+    const socket = new WebSocket(
+      `wss://stream.binance.com:9443/ws/${symbol}@depth${levels}${speedSuffix}`
+    );
+
+    // Connection opened
+    // socket.addEventListener("open", (event) => {
+    //   socket.send("Hello Server!");
+    // });
+
+    // Listen for messages
+    socket.addEventListener("message", (event: MessageEvent) => {
+      const data: OrderBookResponse = JSON.parse(event.data);
+      console.log(data);
+
+      // console.log("Message from server ", event.data);
+    });
+
+    return () => socket.close();
+  }, [symbol]);
+
   return (
     <Stack width="100%" height="100%">
       <Typography variant="h6">
@@ -135,6 +151,10 @@ export default function OrderBookView() {
 
         <DepthSelector />
         <DecimalGroupingSelector />
+      </Stack>
+      <Stack width="100%" flex={1} direction="row" gap={2} p={2}>
+        <OrderBookGrid />
+        <OrderBookGrid />
       </Stack>
     </Stack>
   );
