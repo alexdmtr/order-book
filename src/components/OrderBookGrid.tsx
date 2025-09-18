@@ -10,7 +10,7 @@ import {
 } from "ag-grid-community";
 import { PriceQtyPair } from "./OrderBookView";
 import { useMemo } from "react";
-import { useColorScheme, useTheme, useThemeProps } from "@mui/material";
+import { useColorScheme } from "@mui/material";
 
 // Register all Community features
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -24,8 +24,8 @@ type OrderEntry = {
 
 const columnDefs = [
   { field: "side" },
-  { field: "price" },
-  { field: "amount" },
+  { field: "price", enableCellChangeFlash: true },
+  { field: "amount", enableCellChangeFlash: true },
 ] satisfies ColDef<OrderEntry>[];
 
 export interface OrderBookGridProps {

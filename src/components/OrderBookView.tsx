@@ -1,35 +1,25 @@
 "use client";
 
-import { Stack, Typography } from "@mui/material";
-import { atom, useAtomValue } from "jotai";
-import OrderBookGrid from "./OrderBookGrid";
-import { useEffect, useMemo, useState } from "react";
-import BaseSelector, { BaseAsset, baseAtom } from "./selectors/BaseSelector";
-import QuoteSelector, {
-  QuoteAsset,
-  quoteAtom,
-} from "./selectors/QuoteSelector";
-import {
-  BehaviorSubject,
-  buffer,
-  bufferWhen,
-  concat,
-  fromEvent,
-  skipUntil,
-  Subject,
-  switchMap,
-  take,
-  takeUntil,
-  toArray,
-} from "rxjs";
+import { Stack, Typography, useEventCallback } from "@mui/material";
 import {
   QueryClient,
   QueryClientProvider,
   useQuery,
 } from "@tanstack/react-query";
-
+import { enableMapSet } from "immer";
+import { atom, useAtomValue } from "jotai";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ReplaySubject, take } from "rxjs";
+import { useImmer } from "use-immer";
+import OrderBookGrid from "./OrderBookGrid";
+import BaseSelector, { BaseAsset, baseAtom } from "./selectors/BaseSelector";
+import QuoteSelector, {
+  QuoteAsset,
+  quoteAtom,
+} from "./selectors/QuoteSelector";
 export type Symbol = `${BaseAsset}${QuoteAsset}`;
 
+enableMapSet();
 const symbolAtom = atom<Symbol>((get) => {
   const base = get(baseAtom);
   const quote = get(quoteAtom);
@@ -56,48 +46,96 @@ export type OrderBookState = {
   asks: PriceQtyPair[];
 };
 
+export type LocalState = {
+  lastUpdateId: number;
+  bids: Map<string, string>;
+  asks: Map<string, string>;
+};
+
 function OrderBook() {
   const symbol = useAtomValue(symbolAtom);
-  const [state, setState] = useState<OrderBookState | undefined>();
+  const [state, setState] = useImmer<LocalState>({
+    lastUpdateId: -1,
+    bids: new Map(),
+    asks: new Map(),
+  });
+  const [hasInitial, setHasInitial] = useState(false);
   const [firstUpdateId, setFirstUpdateId] = useState<number | null>(null);
-  const eventStream$ = useMemo(() => new Subject<OrderBookUpdate>(), []);
-  const stateStream = useMemo(() => new Subject<OrderBookState>(), []);
+  const eventStream$ = useMemo(() => new ReplaySubject<OrderBookUpdate>(), []);
+  // const stateStream$ = useMemo(() => new Subject<OrderBookState>(), []);
 
   const snapshotQuery = useQuery({
     queryFn: () =>
       fetch(
         `https://api.binance.com/api/v3/depth?symbol=${symbol.toUpperCase()}&limit=5000`,
-        { mode: "cors" }
-      ).then((res) => {
-        return res.json();
+        { mode: "cors" },
+      ).then(async (res) => {
+        return (await res.json()) as OrderBookState;
       }),
     queryKey: ["snapshot", symbol],
     enabled: firstUpdateId !== null,
   });
 
   useEffect(() => {
-    // buffer events until the first response
-    const buffered$ = eventStream$.pipe(
-      buffer(stateStream),
-      takeUntil(stateStream)
-    );
-
-    // after the response, pass events live
-    const live$ = eventStream$.pipe(skipUntil(stateStream));
-
-    // concat buffered events then live events
-    const subscription = concat(buffered$, live$).subscribe((event) => {
-      console.log(event);
+    const subscription = eventStream$.pipe(take(1)).subscribe((event) => {
+      setFirstUpdateId(event.U);
     });
-
     return () => subscription.unsubscribe();
-  }, [eventStream$, stateStream]);
+  }, [eventStream$]);
+
+  const stateRef = useRef(state);
+  stateRef.current = state; // Keep it updated
+
+  const handleEvent = useEventCallback((event: OrderBookUpdate) => {
+    const currentState = stateRef.current; // Get the latest state
+
+    setState((draft) => {
+      console.log({ event, currentState });
+      if (event.u < draft.lastUpdateId) {
+        return;
+      }
+      if (event.U > draft.lastUpdateId) {
+        throw "Gap in updates";
+        // if (!snapshotQuery.isFetching) {
+        //   snapshotQuery.refetch();
+        //   setHasInitial(false);
+        // }
+        return;
+      }
+
+      for (const [price, amount] of event.b) {
+        if (draft.bids.has(price) && amount === "0") {
+          draft.bids.delete(price);
+        } else {
+          draft.bids.set(price, amount);
+        }
+      }
+
+      for (const [price, amount] of event.a) {
+        if (draft.asks.has(price) && amount === "0") {
+          draft.asks.delete(price);
+        } else {
+          draft.asks.set(price, amount);
+        }
+      }
+
+      draft.lastUpdateId = event.u;
+    });
+  });
+
+  useEffect(() => {
+    if (!hasInitial) {
+      return;
+    }
+    const subscription = eventStream$.subscribe(handleEvent);
+    return () => subscription.unsubscribe();
+  }, [eventStream$, handleEvent, hasInitial]);
 
   if (snapshotQuery.isError) {
     throw snapshotQuery.error;
   }
   useEffect(() => {
-    if (firstUpdateId === null || !snapshotQuery.isSuccess) {
+    if (firstUpdateId === null || !snapshotQuery.isSuccess || hasInitial) {
       return;
     }
     const snapshot = snapshotQuery.data;
@@ -107,32 +145,35 @@ function OrderBook() {
       return;
     }
 
-    setState(snapshot);
-    stateStream.next(snapshot);
-  }, [firstUpdateId, state, symbol, snapshotQuery, stateStream]);
+    setState({
+      lastUpdateId: snapshot.lastUpdateId,
+      bids: new Map(snapshot.bids),
+      asks: new Map(snapshot.asks),
+    });
+    setHasInitial(true);
+  }, [firstUpdateId, symbol, snapshotQuery, setState, hasInitial]);
 
   useEffect(() => {
     // Create WebSocket connection.
     const socket = new WebSocket(
-      `wss://stream.binance.com:9443/ws/${symbol}@depth${levels}${speedSuffix}`
+      `wss://stream.binance.com:9443/ws/${symbol}@depth${levels}${speedSuffix}`,
     );
 
     // Listen for messages
     socket.addEventListener("message", (event: MessageEvent) => {
       const data: OrderBookUpdate = JSON.parse(event.data);
       eventStream$.next(data);
-      setFirstUpdateId((prev) => (prev === null ? data.U : prev));
     });
 
     return () => socket.close();
-  }, [eventStream$, firstUpdateId, symbol]);
+  }, [eventStream$, symbol]);
 
   return (
     <Stack width="100%" flex={1} direction="row" gap={2} p={2}>
       {state && (
         <>
-          <OrderBookGrid prices={state.asks} side="Buy" />
-          <OrderBookGrid prices={state.bids} side="Sell" />
+          <OrderBookGrid prices={[...state.asks.entries()]} side="Buy" />
+          <OrderBookGrid prices={[...state.bids.entries()]} side="Sell" />
         </>
       )}
     </Stack>
