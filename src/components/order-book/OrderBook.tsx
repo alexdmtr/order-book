@@ -153,11 +153,7 @@ export default function OrderBook({ symbol }: OrderBookProps) {
     <Stack width="100%" flex={1} direction="row" gap={2} p={2}>
       {displayState && (
         <>
-          <OrderBookGrid prices={[...displayState.asks.entries()]} side="Buy" />
-          <OrderBookGrid
-            prices={[...displayState.bids.entries()]}
-            side="Sell"
-          />
+          <OrderBookGrid asks={displayState.asks} bids={displayState.bids} />
         </>
       )}
     </Stack>
