@@ -1,6 +1,6 @@
 "use client";
 
-import { AgGridReact } from "ag-grid-react";
+import { useColorScheme } from "@mui/material";
 import {
   AllCommunityModule,
   ColDef,
@@ -8,9 +8,9 @@ import {
   ModuleRegistry,
   themeQuartz,
 } from "ag-grid-community";
-import { PriceQtyPair } from "./OrderBookView";
+import { AgGridReact } from "ag-grid-react";
 import { useMemo } from "react";
-import { useColorScheme } from "@mui/material";
+import { PriceQtyPair } from "./OrderBookView";
 
 // Register all Community features
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -37,12 +37,14 @@ const darkTheme = themeQuartz.withPart(colorSchemeDark);
 export default function OrderBookGrid({ prices, side }: OrderBookGridProps) {
   const orders = useMemo<OrderEntry[]>(
     () =>
-      prices.map((pair, index) => ({
-        side: `${side} ${index + 1}`,
-        price: Number.parseFloat(pair[0]),
-        amount: Number.parseFloat(pair[1]),
-      })),
-    [prices, side]
+      prices
+        .toSorted((a, b) => parseFloat(b[0]) - parseFloat(a[0]))
+        .map((pair, index) => ({
+          side: `${side} ${index + 1}`,
+          price: Number.parseFloat(pair[0]),
+          amount: Number.parseFloat(pair[1]),
+        })),
+    [prices, side],
   );
 
   const { mode, systemMode } = useColorScheme();
@@ -56,7 +58,7 @@ export default function OrderBookGrid({ prices, side }: OrderBookGridProps) {
         animateRows={false}
         columnDefs={columnDefs}
         rowData={orders}
-        getRowId={(params) => params.data.side}
+        getRowId={(params) => params.data.price.toString()}
       />
     </div>
   );
