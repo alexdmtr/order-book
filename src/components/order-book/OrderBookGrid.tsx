@@ -10,7 +10,7 @@ import {
 } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { useMemo } from "react";
-import { PriceQtyPair } from "./OrderBookView";
+import { PriceQtyPair } from "./OrderBook";
 
 // Register all Community features
 ModuleRegistry.registerModules([AllCommunityModule]);

@@ -1,32 +1,20 @@
-"use client";
-
-import { Stack, Typography } from "@mui/material";
-import {
-  QueryClient,
-  QueryClientProvider,
-  useQuery,
-} from "@tanstack/react-query";
-import { enableMapSet } from "immer";
-import { atom, useAtomValue } from "jotai";
+import { Stack } from "@mui/material";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Subject, take, throttleTime, withLatestFrom } from "rxjs";
 import OrderBookGrid from "./OrderBookGrid";
-import BaseSelector, { BaseAsset, baseAtom } from "./selectors/BaseSelector";
-import QuoteSelector, {
-  QuoteAsset,
-  quoteAtom,
-} from "./selectors/QuoteSelector";
-export type Symbol = `${BaseAsset}${QuoteAsset}`;
 
-enableMapSet();
-const symbolAtom = atom<Symbol>((get) => {
-  const base = get(baseAtom);
-  const quote = get(quoteAtom);
-  return `${base}${quote}`;
-});
+type LocalState = {
+  lastUpdateId: number;
+  bids: Map<string, string>;
+  asks: Map<string, string>;
+};
 
-const levels = "@1000ms"; // @5@10@100ms
-const speedSuffix = ""; // @100ms
+type OrderBookState = {
+  lastUpdateId: number;
+  bids: PriceQtyPair[];
+  asks: PriceQtyPair[];
+};
 
 export type PriceQtyPair = [price: string, amount: string];
 export type OrderBookUpdate = {
@@ -39,20 +27,14 @@ export type OrderBookUpdate = {
   a: PriceQtyPair[]; // Asks to be updated
 };
 
-export type OrderBookState = {
-  lastUpdateId: number;
-  bids: PriceQtyPair[];
-  asks: PriceQtyPair[];
-};
+const levels = "@1000ms"; // @5@10@100ms
+const speedSuffix = ""; // @100ms
 
-export type LocalState = {
-  lastUpdateId: number;
-  bids: Map<string, string>;
-  asks: Map<string, string>;
-};
+export interface OrderBookProps {
+  symbol: string;
+}
 
-function OrderBook() {
-  const symbol = useAtomValue(symbolAtom);
+export default function OrderBook({ symbol }: OrderBookProps) {
   const [displayState, setDisplayState] = useState<LocalState>({
     lastUpdateId: -1,
     bids: new Map(),
@@ -178,28 +160,6 @@ function OrderBook() {
           />
         </>
       )}
-    </Stack>
-  );
-}
-const queryClient = new QueryClient();
-
-export default function OrderBookView() {
-  const base = useAtomValue(baseAtom);
-  const quote = useAtomValue(quoteAtom);
-  const symbol = useAtomValue(symbolAtom);
-
-  return (
-    <Stack width="100%" height="100%">
-      <Typography variant="h6">
-        Order Book - {base.toUpperCase()}/{quote.toUpperCase()}
-      </Typography>
-      <Stack width="100%" direction="row" justifyContent="end" gap={1}>
-        <BaseSelector />
-        <QuoteSelector />
-      </Stack>
-      <QueryClientProvider client={queryClient}>
-        <OrderBook key={symbol} />
-      </QueryClientProvider>
     </Stack>
   );
 }

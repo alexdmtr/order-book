@@ -1,4 +1,4 @@
-import OrderBookView from "@/components/OrderBookView";
+import OrderBookView from "@/components/order-book/OrderBookView";
 import { Box, Breadcrumbs } from "@mui/material";
 
 export default function Home() {
