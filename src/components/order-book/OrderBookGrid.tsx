@@ -38,7 +38,11 @@ export default function OrderBookGrid({ prices, side }: OrderBookGridProps) {
   const orders = useMemo<OrderEntry[]>(
     () =>
       prices
-        .toSorted((a, b) => parseFloat(b[0]) - parseFloat(a[0]))
+        .toSorted((a, b) =>
+          side === "Sell"
+            ? parseFloat(b[0]) - parseFloat(a[0])
+            : parseFloat(a[0]) - parseFloat(b[0]),
+        )
         .map((pair, index) => ({
           side: `${side} ${index + 1}`,
           price: Number.parseFloat(pair[0]),
