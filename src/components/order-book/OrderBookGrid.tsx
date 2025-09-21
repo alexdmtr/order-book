@@ -4,10 +4,12 @@ import { AllCommunityModule, ColDef, ModuleRegistry } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { useAtomValue } from "jotai";
 import { useCallback, useMemo } from "react";
+import { baseAtom } from "../selectors/BaseSelector";
 import {
   decimalGroupingAtom,
   useDecimalGroupingCallback,
 } from "../selectors/DecimalGroupingSelector";
+import { quoteAtom } from "../selectors/QuoteSelector";
 import useGridTheme from "./hooks/useGridTheme";
 
 // Register all Community features
@@ -19,16 +21,24 @@ type OrderEntry = {
   type: "ask" | "bid";
 };
 
+const totalFormatter = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 5,
+  minimumFractionDigits: 0,
+});
+
 function useColumnDefs() {
   const decimalGrouping = useAtomValue(decimalGroupingAtom);
   const decimalPlaces =
     decimalGrouping === 0.01 ? 2 : decimalGrouping === 0.1 ? 1 : 0;
+  const base = useAtomValue(baseAtom);
+  const quote = useAtomValue(quoteAtom);
 
   return useMemo(
     () =>
       [
         {
           field: "price",
+          headerName: `Price (${quote.toUpperCase()})`,
           enableCellChangeFlash: true,
           cellStyle: (params) => {
             if (params.data?.type === "ask") {
@@ -41,11 +51,25 @@ function useColumnDefs() {
         },
         {
           field: "amount",
+          type: "rightAligned",
+          headerName: `Amount (${base.toUpperCase()})`,
           enableCellChangeFlash: true,
           valueFormatter: ({ value }) => value.toFixed(5),
         },
+        {
+          colId: "total",
+          type: "rightAligned",
+          headerName: "Total",
+          valueGetter: (params) => {
+            if (!params.data) {
+              return NaN;
+            }
+            return params.data.price * params.data.amount;
+          },
+          valueFormatter: (params) => totalFormatter.format(params.value),
+        },
       ] satisfies ColDef<OrderEntry>[],
-    [decimalPlaces],
+    [base, decimalPlaces, quote],
   );
 }
 
