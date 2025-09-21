@@ -2,8 +2,12 @@
 
 import { AllCommunityModule, ColDef, ModuleRegistry } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
+import { useAtomValue } from "jotai";
 import { useCallback, useMemo } from "react";
-import { useDecimalGroupingCallback } from "../selectors/DecimalGroupingSelector";
+import {
+  decimalGroupingAtom,
+  useDecimalGroupingCallback,
+} from "../selectors/DecimalGroupingSelector";
 import useGridTheme from "./hooks/useGridTheme";
 
 // Register all Community features
@@ -15,24 +19,35 @@ type OrderEntry = {
   type: "ask" | "bid";
 };
 
-const columnDefs = [
-  {
-    field: "price",
-    enableCellChangeFlash: true,
-    cellStyle: (params) => {
-      if (params.data?.type === "ask") {
-        return { color: "red" };
-      } else if (params.data?.type === "bid") {
-        return { color: "green" };
-      }
-    },
-  },
-  {
-    field: "amount",
-    enableCellChangeFlash: true,
-    valueFormatter: ({ value }) => value.toFixed(5),
-  },
-] satisfies ColDef<OrderEntry>[];
+function useColumnDefs() {
+  const decimalGrouping = useAtomValue(decimalGroupingAtom);
+  const decimalPlaces =
+    decimalGrouping === 0.01 ? 2 : decimalGrouping === 0.1 ? 1 : 0;
+
+  return useMemo(
+    () =>
+      [
+        {
+          field: "price",
+          enableCellChangeFlash: true,
+          cellStyle: (params) => {
+            if (params.data?.type === "ask") {
+              return { color: "red" };
+            } else if (params.data?.type === "bid") {
+              return { color: "green" };
+            }
+          },
+          valueFormatter: ({ value }) => value.toFixed(decimalPlaces),
+        },
+        {
+          field: "amount",
+          enableCellChangeFlash: true,
+          valueFormatter: ({ value }) => value.toFixed(5),
+        },
+      ] satisfies ColDef<OrderEntry>[],
+    [decimalPlaces],
+  );
+}
 
 export interface OrderBookGridProps {
   asks: Map<string, string>;
@@ -84,7 +99,7 @@ export default function OrderBookGrid({ asks, bids }: OrderBookGridProps) {
       <AgGridReact
         theme={useGridTheme()}
         animateRows={false}
-        columnDefs={columnDefs}
+        columnDefs={useColumnDefs()}
         rowData={rows}
         getRowId={(params) => `${params.data.price}-${params.data.type}`}
       />
