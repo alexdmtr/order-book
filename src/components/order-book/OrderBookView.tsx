@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { enableMapSet } from "immer";
 import { atom, useAtomValue } from "jotai";
 import BaseSelector, { BaseAsset, baseAtom } from "../selectors/BaseSelector";
+import DecimalGroupingSelector from "../selectors/DecimalGroupingSelector";
 import QuoteSelector, {
   QuoteAsset,
   quoteAtom,
@@ -29,6 +30,7 @@ export default function OrderBookView() {
       <Stack width="100%" direction="row" gap={1}>
         <BaseSelector />
         <QuoteSelector />
+        <DecimalGroupingSelector />
       </Stack>
       <QueryClientProvider client={queryClient}>
         <OrderBook key={symbol} symbol={symbol} />

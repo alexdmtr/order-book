@@ -2,7 +2,8 @@
 
 import { AllCommunityModule, ColDef, ModuleRegistry } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
+import { useDecimalGroupingCallback } from "../selectors/DecimalGroupingSelector";
 import useGridTheme from "./hooks/useGridTheme";
 
 // Register all Community features
@@ -26,7 +27,11 @@ const columnDefs = [
       }
     },
   },
-  { field: "amount", enableCellChangeFlash: true },
+  {
+    field: "amount",
+    enableCellChangeFlash: true,
+    valueFormatter: ({ value }) => value.toFixed(5),
+  },
 ] satisfies ColDef<OrderEntry>[];
 
 export interface OrderBookGridProps {
@@ -35,34 +40,44 @@ export interface OrderBookGridProps {
 }
 
 const depth = 15;
+
+function useBucketBrices() {
+  const groupDecimals = useDecimalGroupingCallback();
+
+  return useCallback(
+    (prices: Map<string, string>, side: "ask" | "bid") =>
+      Map.groupBy(prices, ([price]) => groupDecimals(price, side))
+        .entries()
+        .map(
+          ([price, entries]) =>
+            ({
+              price: price,
+              amount: entries.reduce(
+                (sum, [, amount]) => sum + parseFloat(amount),
+                0,
+              ),
+              type: side,
+            }) as const,
+        ),
+    [groupDecimals],
+  );
+}
+
 export default function OrderBookGrid({ asks, bids }: OrderBookGridProps) {
+  const bucketPrices = useBucketBrices();
   const rows = useMemo<OrderEntry[]>(() => {
-    const askEntries = Array.from(asks.entries())
-      .map(
-        ([price, amount]) =>
-          ({
-            price: Number.parseFloat(price),
-            amount: Number.parseFloat(amount),
-            type: "ask",
-          }) as const,
-      )
+    const askEntries = bucketPrices(asks, "ask")
+      .toArray()
       .sort((a, b) => a.price - b.price)
       .slice(0, depth);
 
-    const bidEntries = Array.from(bids.entries())
-      .map(
-        ([price, amount]) =>
-          ({
-            price: Number.parseFloat(price),
-            amount: Number.parseFloat(amount),
-            type: "bid",
-          }) as const,
-      )
+    const bidEntries = bucketPrices(bids, "bid")
+      .toArray()
       .sort((a, b) => b.price - a.price)
       .slice(0, depth);
 
     return [...askEntries.toReversed(), ...bidEntries];
-  }, [asks, bids]);
+  }, [asks, bids, bucketPrices]);
 
   return (
     <div style={{ height: 800, width: 600 }}>
