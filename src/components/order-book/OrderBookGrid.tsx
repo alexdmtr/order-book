@@ -4,15 +4,13 @@ import { alpha, useTheme } from "@mui/material";
 import { AllCommunityModule, ColDef, ModuleRegistry } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { useAtomValue } from "jotai";
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import { baseAtom } from "../selectors/BaseSelector";
-import {
-  decimalGroupingAtom,
-  useDecimalGroupingCallback,
-} from "../selectors/DecimalGroupingSelector";
+import { decimalGroupingAtom } from "../selectors/DecimalGroupingSelector";
 import { depthVisualisationAtom } from "../selectors/DepthVisualisationSelector";
 import { quoteAtom } from "../selectors/QuoteSelector";
 import useGridTheme from "./hooks/useGridTheme";
+import useBucketBrices from "./useBucketBrices";
 
 // Register all Community features
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -88,29 +86,7 @@ export interface OrderBookGridProps {
   isLoading?: boolean;
 }
 
-const depth = 15;
-
-function useBucketBrices() {
-  const groupDecimals = useDecimalGroupingCallback();
-
-  return useCallback(
-    (prices: Map<string, string>, side: "ask" | "bid") =>
-      Map.groupBy(prices, ([price]) => groupDecimals(price, side))
-        .entries()
-        .map(
-          ([price, entries]) =>
-            ({
-              price: price,
-              amount: entries.reduce(
-                (sum, [, amount]) => sum + parseFloat(amount),
-                0,
-              ),
-              type: side,
-            }) as const,
-        ),
-    [groupDecimals],
-  );
-}
+export const depth = 15;
 
 export default function OrderBookGrid({
   asks,

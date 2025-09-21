@@ -1,10 +1,11 @@
 import { Stack } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Subject, take, throttleTime, withLatestFrom } from "rxjs";
+import { Subject, take, withLatestFrom } from "rxjs";
+import BuySellRatioProgressBar from "./BuySellRatioProgressBar";
 import OrderBookGrid from "./OrderBookGrid";
 
-type LocalState = {
+export type LocalBookState = {
   lastUpdateId: number;
   bids: Map<string, string>;
   asks: Map<string, string>;
@@ -35,7 +36,7 @@ export interface OrderBookProps {
 }
 
 export default function OrderBook({ symbol }: OrderBookProps) {
-  const [displayState, setDisplayState] = useState<LocalState>({
+  const [displayState, setDisplayState] = useState<LocalBookState>({
     lastUpdateId: -1,
     bids: new Map(),
     asks: new Map(),
@@ -43,7 +44,7 @@ export default function OrderBook({ symbol }: OrderBookProps) {
   const [hasInitial, setHasInitial] = useState(false);
   const [firstUpdateId, setFirstUpdateId] = useState<number | null>(null);
   const eventStream$ = useMemo(() => new Subject<OrderBookUpdate>(), []);
-  const stateStream$ = useMemo(() => new Subject<LocalState>(), []);
+  const stateStream$ = useMemo(() => new Subject<LocalBookState>(), []);
 
   useEffect(() => {
     // Create WebSocket connection.
@@ -141,7 +142,7 @@ export default function OrderBook({ symbol }: OrderBookProps) {
 
   useEffect(() => {
     const subscription = stateStream$
-      .pipe(throttleTime(1000))
+      // .pipe(throttleTime(1000))
       .subscribe((state) => {
         console.log("Display update", state);
         setDisplayState(state);
@@ -150,12 +151,13 @@ export default function OrderBook({ symbol }: OrderBookProps) {
   }, [stateStream$]);
 
   return (
-    <Stack width="100%" flex={1} direction="row" gap={2} p={2}>
+    <Stack width="100%" flex={1} gap={2} p={2}>
       <OrderBookGrid
         asks={displayState.asks}
         bids={displayState.bids}
         isLoading={displayState.lastUpdateId === -1}
       />
+      <BuySellRatioProgressBar book={displayState} />
     </Stack>
   );
 }
