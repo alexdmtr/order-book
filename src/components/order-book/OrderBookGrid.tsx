@@ -4,7 +4,7 @@ import { alpha, useTheme } from "@mui/material";
 import { AllCommunityModule, ColDef, ModuleRegistry } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { useAtomValue } from "jotai";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { baseAtom } from "../selectors/BaseSelector";
 import { decimalGroupingAtom } from "../selectors/DecimalGroupingSelector";
 import { depthVisualisationAtom } from "../selectors/DepthVisualisationSelector";
@@ -15,7 +15,7 @@ import useBucketBrices from "./useBucketBrices";
 // Register all Community features
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-type OrderEntry = {
+export type OrderEntry = {
   price: number;
   amount: number;
   type: Side;
@@ -96,6 +96,7 @@ export default function OrderBookGrid({
 }: OrderBookGridProps) {
   const bucketPrices = useBucketBrices();
   const depthVisualisation = useAtomValue(depthVisualisationAtom);
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const { rows } = useMemo(() => {
     const askEntries = bucketPrices(asks, "ask")
       .toArray()
@@ -120,7 +121,7 @@ export default function OrderBookGrid({
         ...entry,
         fillRatio:
           depthVisualisation === "amount"
-            ? entry.amount / topVolume.ask
+            ? entry.amount / largestVolume
             : askVolume / largestVolume,
       };
     });
@@ -132,7 +133,7 @@ export default function OrderBookGrid({
         ...entry,
         fillRatio:
           depthVisualisation === "amount"
-            ? entry.amount / topVolume.bid
+            ? entry.amount / largestVolume
             : bidVolume / largestVolume,
       };
     });
@@ -158,6 +159,23 @@ export default function OrderBookGrid({
             return;
           }
 
+          let showHover = false;
+          if (hoverIndex != null) {
+            if (
+              rows[hoverIndex].type === "ask" &&
+              params.rowIndex >= hoverIndex &&
+              params.data.type === "ask"
+            ) {
+              showHover = true;
+            } else if (
+              rows[hoverIndex].type === "bid" &&
+              params.rowIndex <= hoverIndex &&
+              params.data.type === "bid"
+            ) {
+              showHover = true;
+            }
+          }
+
           const percent = Math.round(params.data.fillRatio * 100);
 
           const baseColor =
@@ -168,7 +186,16 @@ export default function OrderBookGrid({
           const color = alpha(baseColor, 0.3);
           return {
             background: `linear-gradient(to left, ${color} ${percent}%, transparent ${percent}%)`,
+            boxShadow: showHover
+              ? "inset 0 0 0 999px rgba(255, 255, 255, 0.04)"
+              : "",
           };
+        }}
+        onCellMouseOver={(event) => {
+          setHoverIndex(event.rowIndex);
+        }}
+        onCellMouseOut={(event) => {
+          setHoverIndex(null);
         }}
       />
     </div>
