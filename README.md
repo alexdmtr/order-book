@@ -30,7 +30,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 - [ ] Seamless reset when book is out of sync
 - [ ] Animations
-- [ ] Highlight the elements closest to the center on hover
+- [x] Highlight the elements closest to the center on hover
 - [ ] Code cleanup
 
 ## References
