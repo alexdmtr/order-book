@@ -24,6 +24,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 - AG Grid: high performance grid library
 - Jotai: quick and easy local state management
 - Bootstrapped and deployed via Next.js for quick deployments on Vercel
+- TanstackQuery: query/cache management solution
 - - No critical SSR functions have been used
 
 ## TBD

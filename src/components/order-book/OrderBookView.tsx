@@ -2,7 +2,6 @@
 
 import { Stack } from "@mui/material";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { enableMapSet } from "immer";
 import { atom, useAtomValue } from "jotai";
 import BaseSelector, { BaseAsset, baseAtom } from "../selectors/BaseSelector";
 import DecimalGroupingSelector from "../selectors/DecimalGroupingSelector";
@@ -15,7 +14,6 @@ import ShowBuySellRatioSwitch from "../switches/ShowBuySellRatioSwitch";
 import OrderBook from "./OrderBook";
 export type Symbol = `${BaseAsset}${QuoteAsset}`;
 
-enableMapSet();
 const symbolAtom = atom<Symbol>((get) => {
   const base = get(baseAtom);
   const quote = get(quoteAtom);

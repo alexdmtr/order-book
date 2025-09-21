@@ -85,7 +85,6 @@ export default function OrderBook({ symbol }: OrderBookProps) {
     const subscription = eventStream$
       .pipe(withLatestFrom(stateStream$))
       .subscribe(([event, state]) => {
-        // console.log({ event, state });
         if (event.u < state.lastUpdateId) {
           return;
         }
@@ -93,6 +92,7 @@ export default function OrderBook({ symbol }: OrderBookProps) {
           console.error("Gap in updates", {
             gap: event.U - state.lastUpdateId,
           });
+          // TODO: trigger refetch and buffer
         }
 
         const bids = new Map(state.bids);
