@@ -34,7 +34,7 @@ export interface OrderBookGridProps {
   bids: Map<string, string>;
 }
 
-const depth = 20;
+const depth = 15;
 export default function OrderBookGrid({ asks, bids }: OrderBookGridProps) {
   const rows = useMemo<OrderEntry[]>(() => {
     const askEntries = Array.from(asks.entries())
@@ -71,7 +71,7 @@ export default function OrderBookGrid({ asks, bids }: OrderBookGridProps) {
         animateRows={false}
         columnDefs={columnDefs}
         rowData={rows}
-        getRowId={(params) => params.data.price.toString()}
+        getRowId={(params) => `${params.data.price}-${params.data.type}`}
       />
     </div>
   );
