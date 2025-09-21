@@ -96,7 +96,7 @@ export default function OrderBookGrid({
 }: OrderBookGridProps) {
   const bucketPrices = useBucketBrices();
   const depthVisualisation = useAtomValue(depthVisualisationAtom);
-  const { rows, topVolume } = useMemo(() => {
+  const { rows } = useMemo(() => {
     const askEntries = bucketPrices(asks, "ask")
       .toArray()
       .sort((a, b) => a.price - b.price)
@@ -107,15 +107,11 @@ export default function OrderBookGrid({
       .sort((a, b) => b.price - a.price)
       .slice(0, depth);
 
-    const totalVolume = [...askEntries, ...bidEntries].reduce(
-      (sum, e) => sum + e.amount,
-      0,
-    );
-
     const topVolume: Record<Side, number> = {
       ask: Math.max(...askEntries.map((e) => e.amount), 0),
       bid: Math.max(...bidEntries.map((e) => e.amount), 0),
     };
+    const largestVolume = Math.max(topVolume.ask, topVolume.bid);
 
     let askVolume = 0;
     const askRows: OrderEntry[] = askEntries.map((entry) => {
@@ -125,7 +121,7 @@ export default function OrderBookGrid({
         fillRatio:
           depthVisualisation === "amount"
             ? entry.amount / topVolume.ask
-            : askVolume / totalVolume,
+            : askVolume / largestVolume,
       };
     });
 
@@ -137,13 +133,12 @@ export default function OrderBookGrid({
         fillRatio:
           depthVisualisation === "amount"
             ? entry.amount / topVolume.bid
-            : bidVolume / totalVolume,
+            : bidVolume / largestVolume,
       };
     });
 
     return {
       rows: [...askRows.toReversed(), ...bidRows],
-      topVolume,
     };
   }, [asks, bids, bucketPrices, depthVisualisation]);
 
