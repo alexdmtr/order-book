@@ -92,7 +92,7 @@ export default function OrderBook({ symbol }: OrderBookProps) {
           console.error("Gap in updates", {
             gap: event.U - state.lastUpdateId,
           });
-          // TODO: trigger refetch and buffer
+          snapshotQuery.refetch();
         }
 
         const bids = new Map(state.bids);
@@ -143,12 +143,9 @@ export default function OrderBook({ symbol }: OrderBookProps) {
   }, [firstUpdateId, symbol, snapshotQuery, hasInitial, stateStream$]);
 
   useEffect(() => {
-    const subscription = stateStream$
-      // .pipe(throttleTime(1000))
-      .subscribe((state) => {
-        console.log("Display update", state);
-        setDisplayState(state);
-      });
+    const subscription = stateStream$.subscribe((state) => {
+      setDisplayState(state);
+    });
     return () => subscription.unsubscribe();
   }, [stateStream$]);
 
