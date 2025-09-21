@@ -1,85 +1,17 @@
 "use client";
 
 import { alpha, useTheme } from "@mui/material";
-import { AllCommunityModule, ColDef, ModuleRegistry } from "ag-grid-community";
+import { AllCommunityModule, ModuleRegistry } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { useAtomValue } from "jotai";
 import { useMemo, useState } from "react";
-import { baseAtom } from "../selectors/BaseSelector";
-import { decimalGroupingAtom } from "../selectors/DecimalGroupingSelector";
 import { depthVisualisationAtom } from "../selectors/DepthVisualisationSelector";
-import { quoteAtom } from "../selectors/QuoteSelector";
+import useColumnDefs, { OrderEntry, Side } from "./hooks/useColumnDefs";
 import useGridTheme from "./hooks/useGridTheme";
 import useBucketBrices from "./useBucketBrices";
 
 // Register all Community features
 ModuleRegistry.registerModules([AllCommunityModule]);
-
-export type OrderEntry = {
-  price: number;
-  amount: number;
-  type: Side;
-  fillRatio: number;
-};
-
-export type Side = "ask" | "bid";
-
-const totalFormatter = new Intl.NumberFormat("en-US", {
-  maximumFractionDigits: 5,
-  minimumFractionDigits: 0,
-});
-
-function useColumnDefs() {
-  const decimalGrouping = useAtomValue(decimalGroupingAtom);
-  const decimalPlaces =
-    decimalGrouping === 0.01 ? 2 : decimalGrouping === 0.1 ? 1 : 0;
-  const base = useAtomValue(baseAtom);
-  const quote = useAtomValue(quoteAtom);
-  const theme = useTheme();
-
-  return useMemo(
-    () =>
-      [
-        {
-          field: "price",
-          headerName: `Price (${quote.toUpperCase()})`,
-          cellStyle: (params) => {
-            if (params.data?.type === "ask") {
-              return { color: theme.palette.error.main };
-            } else if (params.data?.type === "bid") {
-              return { color: theme.palette.success.main };
-            }
-          },
-          valueFormatter: ({ value }) => value.toFixed(decimalPlaces),
-        },
-        {
-          field: "amount",
-          type: "rightAligned",
-          headerName: `Amount (${base.toUpperCase()})`,
-          valueFormatter: ({ value }) => value.toFixed(5),
-        },
-        {
-          colId: "total",
-          type: "rightAligned",
-          headerName: "Total",
-          valueGetter: (params) => {
-            if (!params.data) {
-              return NaN;
-            }
-            return params.data.price * params.data.amount;
-          },
-          valueFormatter: (params) => totalFormatter.format(params.value),
-        },
-      ] satisfies ColDef<OrderEntry>[],
-    [
-      base,
-      decimalPlaces,
-      quote,
-      theme.palette.error.main,
-      theme.palette.success.main,
-    ],
-  );
-}
 
 export interface OrderBookGridProps {
   asks: Map<string, string>;
@@ -194,7 +126,7 @@ export default function OrderBookGrid({
         onCellMouseOver={(event) => {
           setHoverIndex(event.rowIndex);
         }}
-        onCellMouseOut={(event) => {
+        onCellMouseOut={() => {
           setHoverIndex(null);
         }}
       />
