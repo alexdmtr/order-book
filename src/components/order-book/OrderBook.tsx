@@ -151,7 +151,11 @@ export default function OrderBook({ symbol }: OrderBookProps) {
 
   return (
     <Stack width="100%" flex={1} direction="row" gap={2} p={2}>
-      <OrderBookGrid asks={displayState.asks} bids={displayState.bids} />
+      <OrderBookGrid
+        asks={displayState.asks}
+        bids={displayState.bids}
+        isLoading={displayState.lastUpdateId === -1}
+      />
     </Stack>
   );
 }

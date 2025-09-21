@@ -10,6 +10,7 @@ import {
   decimalGroupingAtom,
   useDecimalGroupingCallback,
 } from "../selectors/DecimalGroupingSelector";
+import { depthVisualisationAtom } from "../selectors/DepthVisualisationSelector";
 import { quoteAtom } from "../selectors/QuoteSelector";
 import useGridTheme from "./hooks/useGridTheme";
 
@@ -84,6 +85,7 @@ function useColumnDefs() {
 export interface OrderBookGridProps {
   asks: Map<string, string>;
   bids: Map<string, string>;
+  isLoading?: boolean;
 }
 
 const depth = 15;
@@ -110,8 +112,13 @@ function useBucketBrices() {
   );
 }
 
-export default function OrderBookGrid({ asks, bids }: OrderBookGridProps) {
+export default function OrderBookGrid({
+  asks,
+  bids,
+  isLoading = false,
+}: OrderBookGridProps) {
   const bucketPrices = useBucketBrices();
+  const depthVisualisation = useAtomValue(depthVisualisationAtom);
   const { rows, topVolume } = useMemo(() => {
     const askEntries = bucketPrices(asks, "ask")
       .toArray()
@@ -123,12 +130,20 @@ export default function OrderBookGrid({ asks, bids }: OrderBookGridProps) {
       .sort((a, b) => b.price - a.price)
       .slice(0, depth);
 
+    const totalVolume = [...askEntries, ...bidEntries].reduce(
+      (sum, e) => sum + e.amount,
+      0,
+    );
+
     const topVolume: Record<Side, number> = {
-      ask: Math.max(...askEntries.map((e) => e.amount * e.price), 0),
-      bid: Math.max(...bidEntries.map((e) => e.amount * e.price), 0),
+      ask: Math.max(...askEntries.map((e) => e.amount), 0),
+      bid: Math.max(...bidEntries.map((e) => e.amount), 0),
     };
 
-    return { rows: [...askEntries.toReversed(), ...bidEntries], topVolume };
+    return {
+      rows: [...askEntries.toReversed(), ...bidEntries],
+      topVolume,
+    };
   }, [asks, bids, bucketPrices]);
 
   const theme = useTheme();
@@ -140,15 +155,15 @@ export default function OrderBookGrid({ asks, bids }: OrderBookGridProps) {
         animateRows={false}
         columnDefs={useColumnDefs()}
         rowData={rows}
+        loading={isLoading}
         getRowId={(params) => `${params.data.price}-${params.data.type}`}
         getRowStyle={(params) => {
           if (!params.data) {
             return;
           }
 
-          const total = params.data.price * params.data.amount;
           const percent = Math.round(
-            (total / topVolume[params.data.type]) * 100,
+            (params.data.amount / topVolume[params.data.type]) * 100,
           );
           const baseColor =
             params.data.type === "ask"

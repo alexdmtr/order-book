@@ -6,6 +6,7 @@ import { enableMapSet } from "immer";
 import { atom, useAtomValue } from "jotai";
 import BaseSelector, { BaseAsset, baseAtom } from "../selectors/BaseSelector";
 import DecimalGroupingSelector from "../selectors/DecimalGroupingSelector";
+import DepthVisualisationSelector from "../selectors/DepthVisualisationSelector";
 import QuoteSelector, {
   QuoteAsset,
   quoteAtom,
@@ -31,6 +32,7 @@ export default function OrderBookView() {
         <BaseSelector />
         <QuoteSelector />
         <DecimalGroupingSelector />
+        <DepthVisualisationSelector />
       </Stack>
       <QueryClientProvider client={queryClient}>
         <OrderBook key={symbol} symbol={symbol} />
