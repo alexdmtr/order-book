@@ -11,6 +11,7 @@ import QuoteSelector, {
   QuoteAsset,
   quoteAtom,
 } from "../selectors/QuoteSelector";
+import ShowBuySellRatioSwitch from "../switches/ShowBuySellRatioSwitch";
 import OrderBook from "./OrderBook";
 export type Symbol = `${BaseAsset}${QuoteAsset}`;
 
@@ -33,6 +34,7 @@ export default function OrderBookView() {
         <QuoteSelector />
         <DecimalGroupingSelector />
         <DepthVisualisationSelector />
+        <ShowBuySellRatioSwitch />
       </Stack>
       <QueryClientProvider client={queryClient}>
         <OrderBook key={symbol} symbol={symbol} />

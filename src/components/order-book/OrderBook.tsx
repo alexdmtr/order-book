@@ -1,7 +1,9 @@
 import { Stack } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
+import { useAtomValue } from "jotai";
 import { useEffect, useMemo, useState } from "react";
 import { Subject, take, withLatestFrom } from "rxjs";
+import { showBuySellRatioAtom } from "../switches/ShowBuySellRatioSwitch";
 import BuySellRatioProgressBar from "./BuySellRatioProgressBar";
 import OrderBookGrid from "./OrderBookGrid";
 
@@ -150,6 +152,8 @@ export default function OrderBook({ symbol }: OrderBookProps) {
     return () => subscription.unsubscribe();
   }, [stateStream$]);
 
+  const showProgressBar = useAtomValue(showBuySellRatioAtom);
+
   return (
     <Stack width="100%" flex={1} gap={2} p={2}>
       <OrderBookGrid
@@ -157,7 +161,7 @@ export default function OrderBook({ symbol }: OrderBookProps) {
         bids={displayState.bids}
         isLoading={displayState.lastUpdateId === -1}
       />
-      <BuySellRatioProgressBar book={displayState} />
+      {showProgressBar ? <BuySellRatioProgressBar book={displayState} /> : null}
     </Stack>
   );
 }
