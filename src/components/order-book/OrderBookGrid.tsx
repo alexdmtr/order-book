@@ -19,6 +19,7 @@ type OrderEntry = {
   price: number;
   amount: number;
   type: Side;
+  fillRatio: number;
 };
 
 export type Side = "ask" | "bid";
@@ -116,11 +117,35 @@ export default function OrderBookGrid({
       bid: Math.max(...bidEntries.map((e) => e.amount), 0),
     };
 
+    let askVolume = 0;
+    const askRows: OrderEntry[] = askEntries.map((entry) => {
+      askVolume += entry.amount;
+      return {
+        ...entry,
+        fillRatio:
+          depthVisualisation === "amount"
+            ? entry.amount / topVolume.ask
+            : askVolume / totalVolume,
+      };
+    });
+
+    let bidVolume = 0;
+    const bidRows: OrderEntry[] = bidEntries.map((entry) => {
+      bidVolume += entry.amount;
+      return {
+        ...entry,
+        fillRatio:
+          depthVisualisation === "amount"
+            ? entry.amount / topVolume.bid
+            : bidVolume / totalVolume,
+      };
+    });
+
     return {
-      rows: [...askEntries.toReversed(), ...bidEntries],
+      rows: [...askRows.toReversed(), ...bidRows],
       topVolume,
     };
-  }, [asks, bids, bucketPrices]);
+  }, [asks, bids, bucketPrices, depthVisualisation]);
 
   const theme = useTheme();
 
@@ -138,9 +163,8 @@ export default function OrderBookGrid({
             return;
           }
 
-          const percent = Math.round(
-            (params.data.amount / topVolume[params.data.type]) * 100,
-          );
+          const percent = Math.round(params.data.fillRatio * 100);
+
           const baseColor =
             params.data.type === "ask"
               ? theme.palette.error.main
