@@ -1,5 +1,6 @@
 "use client";
 
+import { alpha, useTheme } from "@mui/material";
 import { AllCommunityModule, ColDef, ModuleRegistry } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { useAtomValue } from "jotai";
@@ -18,8 +19,10 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 type OrderEntry = {
   price: number;
   amount: number;
-  type: "ask" | "bid";
+  type: Side;
 };
+
+export type Side = "ask" | "bid";
 
 const totalFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 5,
@@ -32,6 +35,7 @@ function useColumnDefs() {
     decimalGrouping === 0.01 ? 2 : decimalGrouping === 0.1 ? 1 : 0;
   const base = useAtomValue(baseAtom);
   const quote = useAtomValue(quoteAtom);
+  const theme = useTheme();
 
   return useMemo(
     () =>
@@ -39,12 +43,11 @@ function useColumnDefs() {
         {
           field: "price",
           headerName: `Price (${quote.toUpperCase()})`,
-          enableCellChangeFlash: true,
           cellStyle: (params) => {
             if (params.data?.type === "ask") {
-              return { color: "red" };
+              return { color: theme.palette.error.main };
             } else if (params.data?.type === "bid") {
-              return { color: "green" };
+              return { color: theme.palette.success.main };
             }
           },
           valueFormatter: ({ value }) => value.toFixed(decimalPlaces),
@@ -53,7 +56,6 @@ function useColumnDefs() {
           field: "amount",
           type: "rightAligned",
           headerName: `Amount (${base.toUpperCase()})`,
-          enableCellChangeFlash: true,
           valueFormatter: ({ value }) => value.toFixed(5),
         },
         {
@@ -69,7 +71,13 @@ function useColumnDefs() {
           valueFormatter: (params) => totalFormatter.format(params.value),
         },
       ] satisfies ColDef<OrderEntry>[],
-    [base, decimalPlaces, quote],
+    [
+      base,
+      decimalPlaces,
+      quote,
+      theme.palette.error.main,
+      theme.palette.success.main,
+    ],
   );
 }
 
@@ -104,7 +112,7 @@ function useBucketBrices() {
 
 export default function OrderBookGrid({ asks, bids }: OrderBookGridProps) {
   const bucketPrices = useBucketBrices();
-  const rows = useMemo<OrderEntry[]>(() => {
+  const { rows, topVolume } = useMemo(() => {
     const askEntries = bucketPrices(asks, "ask")
       .toArray()
       .sort((a, b) => a.price - b.price)
@@ -115,17 +123,43 @@ export default function OrderBookGrid({ asks, bids }: OrderBookGridProps) {
       .sort((a, b) => b.price - a.price)
       .slice(0, depth);
 
-    return [...askEntries.toReversed(), ...bidEntries];
+    const topVolume: Record<Side, number> = {
+      ask: Math.max(...askEntries.map((e) => e.amount * e.price), 0),
+      bid: Math.max(...bidEntries.map((e) => e.amount * e.price), 0),
+    };
+
+    return { rows: [...askEntries.toReversed(), ...bidEntries], topVolume };
   }, [asks, bids, bucketPrices]);
 
+  const theme = useTheme();
+
   return (
-    <div style={{ height: 800, width: 600 }}>
+    <div style={{ height: 900, width: 600 }}>
       <AgGridReact
         theme={useGridTheme()}
         animateRows={false}
         columnDefs={useColumnDefs()}
         rowData={rows}
         getRowId={(params) => `${params.data.price}-${params.data.type}`}
+        getRowStyle={(params) => {
+          if (!params.data) {
+            return;
+          }
+
+          const total = params.data.price * params.data.amount;
+          const percent = Math.round(
+            (total / topVolume[params.data.type]) * 100,
+          );
+          const baseColor =
+            params.data.type === "ask"
+              ? theme.palette.error.main
+              : theme.palette.success.main;
+
+          const color = alpha(baseColor, 0.3);
+          return {
+            background: `linear-gradient(to left, ${color} ${percent}%, transparent ${percent}%)`,
+          };
+        }}
       />
     </div>
   );
